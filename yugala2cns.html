@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MALWARE PROPAGATION & FORENSICS LAB // SOC TERMINAL</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Orbitron for Sci-Fi HUD headers and JetBrains Mono for telemetry -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Orbitron:wght@500;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+            orbitron: ['Orbitron', 'sans-serif'],
+          },
+          colors: {
+            soc: {
+              bg: '#040711',
+              card: 'rgba(10, 16, 31, 0.75)',
+              border: 'rgba(56, 189, 248, 0.12)',
+              cyan: '#06b6d4',
+              red: '#ef4444',
+              emerald: '#10b981',
+              amber: '#f59e0b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom cyber grid and scanline effects */
+    body {
+      background-color: #030611;
+      color: #e2e8f0;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 50% 10%, rgba(14, 165, 233, 0.15) 0%, transparent 55%),
+        radial-gradient(circle at 90% 80%, rgba(239, 68, 68, 0.08) 0%, transparent 40%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    }
+
+    /* Subtle CRT Scanline overlay */
+    .scanlines {
+      background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0),
+        rgba(255,255,255,0) 50%,
+        rgba(0, 0, 0, 0.3) 50%,
+        rgba(0, 0, 0, 0.3)
+      );
+      background-size: 100% 4px;
+      pointer-events: none;
+    }
+
+    /* Cyberpunk HUD Glass Card */
+    .hud-card {
+      background: rgba(8, 14, 28, 0.72);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(56, 189, 248, 0.14);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
+
+    .hud-card::before {
+      content: "";
+      position: absolute;
+      top: -1px;
+      left: 10%;
+      width: 80%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), transparent);
+    }
+
+    /* Screen transition states */
+    .screen-fade {
+      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .screen-inactive {
+      display: none !important;
+      opacity: 0;
+      transform: scale(0.98);
+      pointer-events: none;
+    }
+    .screen-active {
+      display: flex !important;
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Glowing borders based on threat theme */
+    .threat-border-virus:hover {
+      border-color: rgba(239, 68, 68, 0.7);
+      box-shadow: 0 0 30px -5px rgba(239, 68, 68, 0.3);
+    }
+    .threat-border-worm:hover {
+      border-color: rgba(16, 185, 129, 0.7);
+      box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.3);
+    }
+    .threat-border-trojan:hover {
+      border-color: rgba(245, 158, 11, 0.7);
+      box-shadow: 0 0 30px -5px rgba(245, 158, 11, 0.3);
+    }
+
+    /* Monospace telemetry scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #060a17;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #0284c7;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
+  <div class="fixed inset-0 scanlines z-40 pointer-events-none opacity-40"></div>
+
+  <main class="flex-1 flex flex-col relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+    <!-- ================= SCREEN 1: HERO SELECTION MATRIX ================= -->
+    <section id="screen-landing" class="screen-fade screen-active flex flex-col items-center justify-center my-auto py-10">
+      
+      <!-- Mission Briefing Badge & Title -->
+      <div class="text-center max-w-3xl mb-12 sm:mb-16">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-950/60 border border-sky-500/30 text-sky-400 text-xs font-mono font-semibold uppercase tracking-widest mb-4 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+          <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping"></span>
+          Academic Threat Vector Assessment
+        </div>
+        <h1 class="text-3xl sm:text-5xl font-orbitron font-extrabold text-white tracking-wide mb-4 leading-tight">
+          SELECT MALWARE <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-emerald-400 to-amber-400">VECTOR</span>
+        </h1>
+        <p class="text-slate-400 text-sm sm:text-base font-normal leading-relaxed max-w-2xl mx-auto">
+          Explore propagation dynamics across network architecture. Choose an infectious class below to launch real-time packet telemetry, endpoint IP registry logs, and technical forensic breakdown.
+        </p>
+      </div>
+
+      <!-- 3 Sleek Interactive Cyber Trigger Cards -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 w-full max-w-6xl">
+        
+        <!-- CARD 1: COMPUTER VIRUS -->
+        <div onclick="selectMalware('virus')" role="button" tabindex="0" class="group hud-card threat-border-virus rounded-xl p-6 sm:p-8 cursor-pointer flex flex-col justify-between transition-all duration-300">
+          <div class="relative">
+            <div class="flex items-center justify-between mb-6">
+              <div class="w-12 h-12 rounded-lg bg-red-950/60 border border-red-500/40 flex items-center justify-center text-2xl shadow-[0_0_15px_rgba(239,68,68,0.25)] group-hover:scale-110 transition-transform">
+                🧬
+              </div>
+              <span class="font-mono text-xs font-bold px-2.5 py-1 rounded bg-red-950/80 text-red-400 border border-red-800/60 tracking-wider">
+                THREAT // 01
+              </span>
+            </div>
+
+            <h2 class="text-2xl font-orbitron font-bold text-white group-hover:text-red-400 transition-colors mb-2">
+              Computer Virus
+            </h2>
+            <div class="text-xs font-mono uppercase font-semibold text-red-400/90 tracking-wide mb-4">
+              [ Host-Bound Parasitic Vector ]
+            </div>
+
+            <p class="text-slate-400 text-xs sm:text-sm leading-relaxed mb-6 font-normal">
+              Attaches malicious code to benign host executables (<code class="text-red-300">.exe</code>, <code class="text-red-300">.docx</code>). Relies completely on human interaction, shared drives, or USB media to hop between workstations.
+            </p>
+
+            <div class="space-y-2 mb-6 font-mono text-xs text-slate-400">
+              <div class="flex items-center gap-2">
+                <span class="text-red-500">◈</span> Replication: <span class="text-slate-200">Host Executable Insertion</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-red-500">◈</span> Propagation: <span class="text-slate-200">Human File Transfer</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-red-500">◈</span> Speed: <span class="text-slate-200">Moderate / User Dependent</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs font-mono font-bold text-red-400 group-hover:translate-x-1 transition-transform">
+            <span>INITIALIZE SIMULATION & FORENSICS</span>
+            <span class="text-base font-bold">→</span>
+          </div>
+        </div>
+
+        <!-- CARD 2: NETWORK WORM -->
+        <div onclick="selectMalware('worm')" role="button" tabindex="0" class="group hud-card threat-border-worm rounded-xl p-6 sm:p-8 cursor-pointer flex flex-col justify-between transition-all duration-300">
+          <div class="relative">
+            <div class="flex items-center justify-between mb-6">
+              <div class="w-12 h-12 rounded-lg bg-emerald-950/60 border border-emerald-500/40 flex items-center justify-center text-2xl shadow-[0_0_15px_rgba(16,185,129,0.25)] group-hover:scale-110 transition-transform">
+                🐛
+              </div>
+              <span class="font-mono text-xs font-bold px-2.5 py-1 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 tracking-wider">
+                THREAT // 02
+              </span>
+            </div>
+
+            <h2 class="text-2xl font-orbitron font-bold text-white group-hover:text-emerald-400 transition-colors mb-2">
+              Network Worm
+            </h2>
+            <div class="text-xs font-mono uppercase font-semibold text-emerald-400/90 tracking-wide mb-4">
+              [ Autonomous Self-Propagator ]
+            </div>
+
+            <p class="text-slate-400 text-xs sm:text-sm leading-relaxed mb-6 font-normal">
+              Standalone malicious program that self-replicates across computer networks. Actively probes open ports, weaponizes unpatched service bugs (SMB/RDP), and sweeps entire subnets without user aid.
+            </p>
+
+            <div class="space-y-2 mb-6 font-mono text-xs text-slate-400">
+              <div class="flex items-center gap-2">
+                <span class="text-emerald-500">◈</span> Replication: <span class="text-slate-200">Autonomous Self-Cloning</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-emerald-500">◈</span> Propagation: <span class="text-slate-200">Lateral Port Exploit Cascade</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-emerald-500">◈</span> Speed: <span class="text-slate-200">Instant / Exponential Spread</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs font-mono font-bold text-emerald-400 group-hover:translate-x-1 transition-transform">
+            <span>INITIALIZE SIMULATION & FORENSICS</span>
+            <span class="text-base font-bold">→</span>
+          </div>
+        </div>
+
+        <!-- CARD 3: TROJAN HORSE -->
+        <div onclick="selectMalware('trojan')" role="button" tabindex="0" class="group hud-card threat-border-trojan rounded-xl p-6 sm:p-8 cursor-pointer flex flex-col justify-between transition-all duration-300">
+          <div class="relative">
+            <div class="flex items-center justify-between mb-6">
+              <div class="w-12 h-12 rounded-lg bg-amber-950/60 border border-amber-500/40 flex items-center justify-center text-2xl shadow-[0_0_15px_rgba(245,158,11,0.25)] group-hover:scale-110 transition-transform">
+                🎭
+              </div>
+              <span class="font-mono text-xs font-bold px-2.5 py-1 rounded bg-amber-950/80 text-amber-400 border border-amber-800/60 tracking-wider">
+                THREAT // 03
+              </span>
+            </div>
+
+            <h2 class="text-2xl font-orbitron font-bold text-white group-hover:text-amber-400 transition-colors mb-2">
+              Trojan Horse
+            </h2>
+            <div class="text-xs font-mono uppercase font-semibold text-amber-400/90 tracking-wide mb-4">
+              [ Disguised Backdoor & C2 RAT ]
+            </div>
+
+            <p class="text-slate-400 text-xs sm:text-sm leading-relaxed mb-6 font-normal">
+              Masquerades as legitimate software (utilities, keygens, pdfs). <em>Crucially does not self-replicate laterally!</em> Delivered via phishing or downloads from an external C2 server to establish persistent backdoors.
+            </p>
+
+            <div class="space-y-2 mb-6 font-mono text-xs text-slate-400">
+              <div class="flex items-center gap-2">
+                <span class="text-amber-500">◈</span> Replication: <span class="text-slate-200">Non-Replicating (Carrier Trap)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-amber-500">◈</span> Propagation: <span class="text-slate-200">External Web Drop / Social Eng.</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-amber-500">◈</span> Speed: <span class="text-slate-200">Stealth Ingress / Persistent C2</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs font-mono font-bold text-amber-400 group-hover:translate-x-1 transition-transform">
+            <span>INITIALIZE SIMULATION & FORENSICS</span>
+            <span class="text-base font-bold">→</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick SOC Disclaimer -->
+      <div class="mt-12 text-center text-xs font-mono text-slate-400 max-w-xl">
+        <span class="text-cyan-400">NOTE:</span> Each simulator models scientifically valid attack topologies based on MITRE ATT&CK® matrix standards.
+      </div>
+    </section>
+
+    <!-- ================= SCREEN 2: SIMULATION & FORENSIC INTELLIGENCE ================= -->
+    <section id="screen-simulation" class="screen-fade screen-inactive flex-col gap-8 pb-16">
+      
+      <!-- Top Tactical HUD / Control Bar -->
+      <div class="hud-card rounded-xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <button onclick="navigateHome()" class="px-3 py-1.5 rounded bg-slate-900 border border-slate-700 hover:border-cyan-400 text-xs font-mono text-slate-300 hover:text-white transition-all flex items-center gap-2 shadow-sm">
+            <span>←</span> TERMINAL HOME
+          </button>
+          <div class="h-6 w-[1px] bg-slate-800 hidden sm:block"></div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="active-icon" class="text-xl">🧬</span>
+              <h2 id="active-title" class="font-orbitron font-bold text-base sm:text-lg text-white">Computer Virus</h2>
+              <span id="active-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-800 uppercase">HOST-DEPENDENT</span>
+            </div>
+            <div id="active-mech-banner" class="text-xs font-mono text-slate-400 mt-0.5">
+              Live Vector: Executable Injection via File Hops
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry & Simulation Controls -->
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div class="px-3 py-1.5 rounded bg-slate-900/90 border border-slate-800 text-xs font-mono flex items-center gap-2">
+            <span class="text-slate-400">TOPOLOGY:</span>
+            <span class="text-cyan-400 font-bold" id="topology-mode-badge">LAN MESH</span>
+          </div>
+
+          <button id="sim-pause-btn" onclick="toggleSimPause()" class="px-3.5 py-1.5 rounded bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-mono text-slate-200 transition-colors">
+            ⏸ PAUSE
+          </button>
+          <button onclick="resetSimulation()" class="px-3.5 py-1.5 rounded bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-mono text-slate-200 transition-colors">
+            ↺ RESTART CYCLE
+          </button>
+        </div>
+      </div>
+
+      <!-- TOP SECTION: ANIMATION CANVAS DISPLAY -->
+      <div class="hud-card rounded-xl p-4 sm:p-5 border border-sky-500/20 flex flex-col gap-3">
+        <div class="flex items-center justify-between text-xs font-mono pb-2 border-b border-slate-800/80">
+          <div class="flex items-center gap-2">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+            </span>
+            <span class="text-slate-200 font-semibold tracking-wider uppercase">Interactive Network Propagation Canvas</span>
+          </div>
+          <div id="cycle-telemetry" class="text-slate-400 text-[11px]">
+            CYCLE: <span class="text-cyan-400">ACTIVE</span> // COMPROMISE VELOCITY: <span id="velocity-indicator" class="text-white">NORMAL</span>
+          </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="relative w-full h-[360px] sm:h-[440px] bg-slate-950 rounded-lg overflow-hidden border border-slate-900">
+          <canvas id="threatCanvas" class="w-full h-full block"></canvas>
+          
+          <!-- Dynamic HUD Overlay Notes -->
+          <div class="absolute top-3 left-3 bg-slate-950/80 border border-slate-800/90 rounded p-2.5 text-[11px] font-mono backdrop-blur-md max-w-xs pointer-events-none">
+            <div class="text-cyan-400 font-bold mb-1 flex items-center gap-1.5">
+              <span>◉</span> PROPAGATION TELEMETRY
+            </div>
+            <div id="hud-packet-desc" class="text-slate-400 text-[10px] leading-relaxed">
+              Monitoring node packet traffic and handshake signatures...
+            </div>
+          </div>
+
+          <!-- Bottom Right Legend -->
+          <div id="canvas-legend-box" class="absolute bottom-3 right-3 bg-slate-950/80 border border-slate-800/90 rounded p-2.5 text-[10px] font-mono text-slate-400 backdrop-blur-md pointer-events-none space-y-1">
+            <!-- Dynamic elements loaded via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- DEVICE IP REGISTRY TABLE & TIMESTAMPS -->
+      <div class="hud-card rounded-xl p-5 border border-sky-500/20">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-slate-800/80 gap-2">
+          <div class="flex items-center gap-2">
+            <span class="font-orbitron font-bold text-sm text-white">ENDPOINT IP ARRIVAL & INFECTION REGISTRY</span>
+            <span class="text-xs font-mono text-slate-400">[ LIVE MONITOR ]</span>
+          </div>
+          <div class="text-xs font-mono flex items-center gap-2">
+            <span class="text-slate-400">COMPROMISE RATIO:</span>
+            <span id="compromise-stats" class="px-2 py-0.5 rounded font-bold bg-slate-900 border border-slate-800 text-red-400">1 / 8 DEVICES</span>
+          </div>
+        </div>
+
+        <!-- 8 Block Grid of Endpoints -->
+        <div id="device-blocks-grid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+          <!-- Populated dynamically by JS -->
+        </div>
+      </div>
+
+      <!-- FORENSIC INTELLIGENCE DEEP DIVE (6 DETAILED SECTIONS) -->
+      <div class="space-y-4">
+        <div class="border-b border-sky-500/20 pb-3 flex items-center justify-between">
+          <div>
+            <h3 class="font-orbitron font-bold text-lg sm:text-xl text-white tracking-wide">
+              FORENSIC INTELLIGENCE & DEFENSIVE SPECIFICATIONS
+            </h3>
+            <p class="text-xs font-mono text-slate-400 mt-0.5">
+              Comprehensive threat analysis, architectural mechanics, and mitigation framework.
+            </p>
+          </div>
+          <div class="text-xs font-mono text-cyan-400 uppercase hidden sm:block">
+            DOC_REF: RFC-MAL-SEC
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          
+          <!-- 1. PROCESS -->
+          <div class="hud-card rounded-xl p-5 border-l-4 border-l-cyan-500 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider">01 // EXECUTION FLOW</span>
+                <span class="text-lg">⚙️</span>
+              </div>
+              <h4 class="font-orbitron font-bold text-base text-white mb-2">Process & Mechanics</h4>
+              <p class="text-xs text-slate-400 mb-3 font-mono leading-relaxed">
+                Step-by-step lifecycle of how the threat infiltrates, executes, and traverses host memory.
+              </p>
+              <ul id="forensic-process" class="space-y-2.5 text-xs text-slate-300 font-sans">
+                <!-- Dynamic text injected -->
+              </ul>
+            </div>
+            <div class="mt-4 pt-2.5 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 flex justify-between">
+              <span>STAGE: INGRESS & SPREAD</span>
+              <span class="text-cyan-400">ACTIVE_AUDIT</span>
+            </div>
+          </div>
+
+          <!-- 2. CAUSES -->
+          <div class="hud-card rounded-xl p-5 border-l-4 border-l-red-500 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-mono font-bold text-red-400 uppercase tracking-wider">02 // ROOT VULNERABILITY</span>
+                <span class="text-lg">🎯</span>
+              </div>
+              <h4 class="font-orbitron font-bold text-base text-white mb-2">Causes & Triggers</h4>
+              <p class="text-xs text-slate-400 mb-3 font-mono leading-relaxed">
+                Architectural weaknesses, human fallibility, and misconfigurations that permit entry.
+              </p>
+              <ul id="forensic-causes" class="space-y-2.5 text-xs text-slate-300 font-sans">
+                <!-- Dynamic text injected -->
+              </ul>
+            </div>
+            <div class="mt-4 pt-2.5 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 flex justify-between">
+              <span>STAGE: EXPLOIT CONDITION</span>
+              <span class="text-red-400">CRITICAL</span>
+            </div>
+          </div>
+
+          <!-- 3. THREATS -->
+          <div class="hud-card rounded-xl p-5 border-l-4 border-l-amber-500 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">03 // ATTACK VECTORS</span>
+                <span class="text-lg">⚠️</span>
+              </div>
+              <h4 class="font-orbitron font-bold text-base text-white mb-2">Threats & Exposure</h4>
+              <p class="text-xs text-slate-400 mb-3 font-mono leading-relaxed">
+                Security boundaries violated, persistence methods, and unauthorized Command & Control.
+              </p>
+              <ul id="forensic-threats" class="space-y-2.5 text-xs text-slate-300 font-sans">
+                <!-- Dynamic text injected -->
+              </ul>
+            </div>
+            <div class="mt-4 pt-2.5 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 flex justify-between">
+              <span>STAGE: PRIVILEGE ESCALATION</span>
+              <span class="text-amber-400">ELEVATED</span>
+            </div>
+          </div>
+
+          <!-- 4. HARMS -->
+          <div class="hud-card rounded-xl p-5 border-l-4 border-l-rose-600 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-mono font-bold text-rose-400 uppercase tracking-wider">04 // SYSTEMIC IMPACT</span>
+                <span class="text-lg">💥</span>
+              </div>
+              <h4 class="font-orbitron font-bold text-base text-white mb-2">Harms & Damage</h4>
+              <p class="text-xs text-slate-400 mb-3 font-mono leading-relaxed">
+                Tangible destruction: system outages, corrupted binaries, downtime, and organizational loss.
+              </p>
+              <ul id="forensic-harms" class="space-y-2.5 text-xs text-slate-300 font-sans">
+                <!-- Dynamic text injected -->
+              </ul>
+            </div>
+            <div class="mt-4 pt-2.5 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 flex justify-between">
+              <span>STAGE: PAYLOAD EXECUTION</span>
+              <span class="text-rose-500">SEVERE_LOSS</span>
+            </div>
+          </div>
+
+          <!-- 5. SOLUTION TO THE CAUSE -->
+          <div class="hud-card rounded-xl p-5 border-l-4 border-l-blue-500 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-mono font-bold text-blue-400 uppercase tracking-wider">05 // ROOT REMEDIATION</span>
+                <span class="text-lg">🔧</span>
+              </div>
+              <h4 class="font-orbitron font-bold text-base text-white mb-2">Solution to the Cause</h4>
+              <p class="text-xs text-slate-400 mb-3 font-mono leading-relaxed">
+                Direct fixes targeting root vulnerabilities, patch workflows, and configuration hardening.
+              </p>
+              <ul id="forensic-solution" class="space-y-2.5 text-xs text-slate-300 font-sans">
+                <!-- Dynamic text injected -->
+              </ul>
+            </div>
+            <div class="mt-4 pt-2.5 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 flex justify-between">
+              <span>STAGE: VULNERABILITY CLOSURE</span>
+              <span class="text-blue-400">HARDENING</span>
+            </div>
+          </div>
+
+          <!-- 6. SECURITY TO PROTECT THE SYSTEM -->
+          <div class="hud-card rounded-xl p-5 border-l-4 border-l-emerald-500 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">06 // SYSTEMIC DEFENSE</span>
+                <span class="text-lg">🛡️</span>
+              </div>
+              <h4 class="font-orbitron font-bold text-base text-white mb-2">Security & Protection</h4>
+              <p class="text-xs text-slate-400 mb-3 font-mono leading-relaxed">
+                Multi-layered enterprise defenses, EDR rules, zero trust microsegmentation, and hygiene.
+              </p>
+              <ul id="forensic-security" class="space-y-2.5 text-xs text-slate-300 font-sans">
+                <!-- Dynamic text injected -->
+              </ul>
+            </div>
+            <div class="mt-4 pt-2.5 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 flex justify-between">
+              <span>STAGE: ENTERPRISE ARCHITECTURE</span>
+              <span class="text-emerald-400">ZERO_TRUST</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= PERSISTENT ALA STUDENT CREDENTIALS FOOTER ================= -->
+  <footer class="w-full border-t border-sky-500/20 bg-slate-950/90 backdrop-blur-md py-4 px-4 sm:px-8 mt-auto relative z-20">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-slate-400">
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]"></span>
+        <span class="tracking-wider">ACADEMIC LAB ASSIGNMENT (ALA) // MALWARE PROPAGATION RESEARCH</span>
+      </div>
+      <div class="flex items-center flex-wrap justify-center gap-3 sm:gap-4 text-slate-200">
+        <span class="flex items-center gap-1.5">
+          <span class="text-slate-500">NAME:</span>
+          <strong class="text-cyan-400 font-bold uppercase tracking-wide">YUG SARVAIYA</strong>
+        </span>
+        <span class="text-slate-600 hidden sm:inline">•</span>
+        <span class="flex items-center gap-1.5">
+          <span class="text-slate-500">ENROLLMENT:</span>
+          <strong class="text-emerald-400 font-bold tracking-wider">241105060121</strong>
+        </span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    /* ==============================================================
+       THREAT VECTOR SCIENTIFIC INTELLIGENCE DATABASE
+       Accurate distinctions between Virus, Worm, and Trojan.
+       ============================================================== */
+    const THREAT_DB = {
+      virus: {
+        id: "virus",
+        name: "Computer Virus",
+        badge: "Parasitic File Infector",
+        icon: "🧬",
+        accent: "#ef4444",
+        topologyType: "PEER LAN FILE-SHARING",
+        mechanismBanner: "Live Vector: Parasitic Host Insertion & Sequential User File Transfers",
+        speedIndicator: "MODERATE (Human-Dependent)",
+        hudTelemetry: "Sequential file synchronization detected. Malicious byte stream injecting into clean host PE (.exe/.dll) binaries over SMB share mounts.",
+        legend: [
+          '<span class="text-red-400">● Carrier File Packet (.exe / .docx)</span>',
+          '<span class="text-slate-300">■ Local Subnet Endpoint</span>',
+          '<span class="text-red-500">⚡ Infected Memory State</span>'
+        ],
+        speed: 0.015,
+        spawnDelay: 75,
+        process: [
+          "<strong>1. Infiltration & Insertion:</strong> The virus payload attaches its malicious instructions to the header or tail of a legitimate executable program or script.",
+          "<strong>2. Dormant State:</strong> The virus remains inert on storage until a user runs the infected application or executes embedded macros.",
+          "<strong>3. Memory Hijacking:</strong> Upon execution, the virus usurps CPU instruction pointers, loads its code into RAM, and scans local storage for new clean programs.",
+          "<strong>4. Sequential Propagation:</strong> Transfers to new hosts when users transmit infected files via shared network folders, email attachments, or USB drives."
+        ],
+        causes: [
+          "<strong>Unvetted External Media:</strong> Insertion of unmonitored USB flash drives with active AutoRun or uninspected files.",
+          "<strong>Permissive Macro Execution:</strong> Office applications configured to automatically run untrusted Visual Basic (VBA) macro scripts.",
+          "<strong>Unchecked File Sharing:</strong> Unrestricted Read/Write access on open corporate network shares allowing infected files to be placed in shared directories."
+        ],
+        threats: [
+          "<strong>Host Executable Contamination:</strong> Systematic corruption of system binaries and dynamic link libraries (DLL hijacking).",
+          "<strong>Integrity Violation:</strong> Uncontrolled file tampering altering accounting databases, records, and software binaries.",
+          "<strong>Persistence Insertion:</strong> Modifies Windows Registry Run keys or cron jobs to ensure automatic re-infection on every reboot."
+        ],
+        harms: [
+          "<strong>Permanent File Destruction:</strong> Critical work documents, spreadsheets, and operating system binaries scrambled or deleted.",
+          "<strong>Kernel Crashes & Instability:</strong> Frequent system crashes, Memory Fault exceptions, and Blue Screen of Death (BSOD) loops.",
+          "<strong>Operational Interruption:</strong> Total workstation downtime requiring complete operating system formatting and re-imaging."
+        ],
+        solution: [
+          "<strong>Restrict Macro Scripting:</strong> Disable all unsigned and internet-sourced VBA macros enterprise-wide using centralized Group Policy (GPO).",
+          "<strong>USB Device Control:</strong> Enforce endpoint port restrictions that block unauthorized mass storage devices or mount them as Read-Only.",
+          "<strong>File Integrity Monitoring (FIM):</strong> Implement cryptographic hashing (SHA-256) on critical system executables to flag unauthorized modifications."
+        ],
+        security: [
+          "<strong>Endpoint Detection & Response (EDR):</strong> Deploy behavioral heuristic scanning that intercepts unauthorized process injection into host binaries.",
+          "<strong>Least Privilege Execution:</strong> Run all user workstations under non-administrative accounts to deny malware write permissions to System32.",
+          "<strong>Immutable Air-Gapped Backups:</strong> Maintain offline, versioned file backups to enable instant restoration without paying ransoms or data loss."
+        ]
+      },
+
+      worm: {
+        id: "worm",
+        name: "Network Worm",
+        badge: "Autonomous Self-Replicator",
+        icon: "🐛",
+        accent: "#10b981",
+        topologyType: "DISTRIBUTED SUBNET MESH",
+        mechanismBanner: "Live Vector: Autonomous Remote Service Exploit (Zero Human Interaction)",
+        speedIndicator: "EXPONENTIAL (Autonomous Spread)",
+        hudTelemetry: "Mass lateral scanning active! Automated port probing weaponizing unpatched RPC/SMB service buffer overflows. Replicating independent clones sideways.",
+        legend: [
+          '<span class="text-emerald-400">● Autonomous Exploit Payload (MS17-010)</span>',
+          '<span class="text-slate-300">■ Subnet Endpoint Nodes</span>',
+          '<span class="text-emerald-500">⚡ Autonomous Compromise</span>'
+        ],
+        speed: 0.032,
+        spawnDelay: 30,
+        process: [
+          "<strong>1. Autonomous Port Probing:</strong> The worm generates batches of internal IP addresses and aggressively probes open network listening ports (e.g., 445, 139, 3389, 8080).",
+          "<strong>2. Remote Buffer Exploit:</strong> Sends crafted network packets that trigger memory buffer overflows in unpatched network services (e.g., EternalBlue, Log4Shell).",
+          "<strong>3. Shellcode Execution:</strong> Executes a remote kernel shellcode that downloads the complete worm binary directly over the network wire.",
+          "<strong>4. Self-Spawning Engine:</strong> The newly infected host instantly transforms into an active scanner, exponentially attacking all remaining subnet computers simultaneously."
+        ],
+        causes: [
+          "<strong>Unpatched Network Daemons:</strong> Unmitigated remote vulnerabilities left unpatched in core network listener services.",
+          "<strong>Flat Internal Architecture:</strong> Complete absence of internal firewall boundaries, allowing free-flowing East-West network packet routing.",
+          "<strong>Legacy Protocols Active:</strong> Deprecated and insecure protocols (SMBv1, Telnet, NTLMv1) remaining active on internal subnets."
+        ],
+        threats: [
+          "<strong>Cascade Zero-Click Takeover:</strong> Total corporate subnet compromise achieved in minutes without a single employee clicking a link.",
+          "<strong>Network Infrastructure DoS:</strong> Massive lateral scanning packet storms saturate core switches, causing total internal network collapse.",
+          "<strong>Automated Payload Delivery:</strong> Frequently acts as the rapid transportation engine for catastrophic wiper malware or lateral ransomware."
+        ],
+        harms: [
+          "<strong>Total Network Paralysis:</strong> Critical servers, VoIP lines, and industrial SCADA controllers knocked completely offline due to bandwidth flooding.",
+          "<strong>Mass Multi-System Ransomware:</strong> Thousands of enterprise endpoints encrypted simultaneously before incident response teams can isolate hosts.",
+          "<strong>Severe Financial & Brand Ruin:</strong> Unplanned enterprise downtime costing millions of dollars per hour in halted logistics and operations."
+        ],
+        solution: [
+          "<strong>Aggressive Patch Management:</strong> Enforce strict automated SLA patch pipelines for Critical and High CVE vulnerabilities on all endpoints.",
+          "<strong>Disable Deprecated Protocols:</strong> Completely decommission legacy protocols like SMBv1, NetBIOS, and unencrypted management interfaces.",
+          "<strong>Default-Deny Internal Firewalls:</strong> Block all lateral workstation-to-workstation communication on vulnerable ports (TCP 445, 135, 3389)."
+        ],
+        security: [
+          "<strong>Zero-Trust Microsegmentation:</strong> Implement host-based software firewalls and dynamic network VLAN isolation to confine computers to isolated pods.",
+          "<strong>Intrusion Prevention Systems (IPS):</strong> Deploy deep packet inspection sensors that identify and terminate exploit signatures in flight.",
+          "<strong>Automated Endpoint Quarantine:</strong> Configure EDR agents to automatically sever an endpoint's network adapter the moment anomalous port sweeps trigger."
+        ]
+      },
+
+      trojan: {
+        id: "trojan",
+        name: "Trojan Horse",
+        badge: "Disguised Ingress & Backdoor RAT",
+        icon: "🎭",
+        accent: "#f59e0b",
+        topologyType: "C2 CLIENT-SERVER INGRESS",
+        mechanismBanner: "Live Vector: Disguised External Ingress (No Lateral Replication) + Reverse C2 Shell",
+        speedIndicator: "STEALTH (Targeted Delivery)",
+        hudTelemetry: "Deceptive payload masquerading as trusted application. Endpoint initiates outbound handshake to Command & Control (C2) server on 198.51.100.44.",
+        legend: [
+          '<span class="text-rose-500">▲ Remote Attacker C2 Server (External)</span>',
+          '<span class="text-amber-400">● Dropper Download / Reverse C2 Shell</span>',
+          '<span class="text-slate-300">■ Tricked Internal Endpoints</span>'
+        ],
+        speed: 0.018,
+        spawnDelay: 65,
+        process: [
+          "<strong>1. Social Engineering / Masquerade:</strong> The attacker disguises malicious code as a legitimate file (cracked CAD software, invoice PDF, system updater).",
+          "<strong>2. User Bait & Execution:</strong> An unsuspecting employee downloads and opens the program, believing it performs a desired benign function.",
+          "<strong>3. Silent Dropper Infiltration:</strong> While displaying a decoy graphic or real installer, the Trojan drops a covert remote access daemon in background directories.",
+          "<strong>4. Reverse C2 Beaconing (Crucial Distinction):</strong> The Trojan <em>does not self-replicate sideways to other PCs</em>. Instead, each victim independently establishes an outbound connection to the Attacker C2 server."
+        ],
+        causes: [
+          "<strong>Social Engineering Susceptibility:</strong> Employees tricked by spoofed executive emails, fake invoice attachments, or spear-phishing messages.",
+          "<strong>Unauthorized Software Downloads:</strong> Staff using work computers to acquire cracked software, torrents, or third-party web tools.",
+          "<strong>Missing Application Controls:</strong> Operating systems configured without software restriction policies, letting arbitrary unsigned binaries execute."
+        ],
+        threats: [
+          "<strong>Covert Remote Access Trojan (RAT):</strong> Gives foreign adversaries persistent live terminal access, webcam control, and microphone eavesdropping.",
+          "<strong>Credential Harvesting:</strong> Injects keyloggers and memory scrapers that harvest web session tokens, Active Directory passwords, and banking keys.",
+          "<strong>Data Exfiltration Pipeline:</strong> Establishes encrypted tunneling channels to secretly siphon confidential IP and intellectual property out to adversary servers."
+        ],
+        harms: [
+          "<strong>Espionage & Trade Secret Theft:</strong> Competitors or foreign states gaining access to proprietary blueprints, customer databases, and financial audits.",
+          "<strong>Domain Admin Takeover:</strong> Attackers use the Trojan backdoor to stage privileged reconnaissance, eventually hijacking company domain controllers.",
+          "<strong>Massive Regulatory Fines:</strong> Major GDPR, HIPAA, and PCI-DSS compliance penalties stemming from unmonitored exfiltration of sensitive consumer records."
+        ],
+        solution: [
+          "<strong>Strict Application Allowlisting:</strong> Implement AppLocker or Windows Defender Application Control (WDAC) to strictly forbid execution of non-whitelisted binaries.",
+          "<strong>Remove Local Admin Rights:</strong> Enforce Least Privilege by ensuring normal employees run with standard user accounts, denying silent background service installations.",
+          "<strong>Secure Email Gateways (SEG):</strong> Deploy AI-powered email filters that detonate untrusted attachments in cloud sandboxes before reaching inboxes."
+        ],
+        security: [
+          "<strong>DNS Sinkholing & Egress Filtering:</strong> Inspect and block unexpected outbound TCP/UDP connections to untrusted foreign IP addresses and newly registered domains.",
+          "<strong>Continuous Phishing Simulations:</strong> Conduct regular simulated social engineering drills to build organizational resilience against deceptive lures.",
+          "<strong>Behavioral EDR Sandboxing:</strong> Utilize behavioral telemetry that flags parent-child process anomalies (e.g., Microsoft Word launching powershell.exe)."
+        ]
+      }
+    };
+
+    /* ==============================================================
+       NETWORK TOPOLOGY DEFINITIONS
+       8 Endpoints + 1 External Attacker C2 Server (for Trojan)
+       ============================================================== */
+    const ATTACKER_C2 = {
+      id: "c2-attacker",
+      name: "Adversary C2 Server",
+      ip: "198.51.100.44 [WAN]",
+      x: 500,
+      y: 45,
+      isAttacker: true
+    };
+
+    const NETWORK_NODES = [
+      { id: 0, name: "Node-Gateway", ip: "192.168.1.1", x: 120, y: 150, role: "Subnet Router" },
+      { id: 1, name: "Finance-PC1", ip: "192.168.1.12", x: 260, y: 110, role: "Accounting Host" },
+      { id: 2, name: "HR-Terminal", ip: "192.168.1.25", x: 260, y: 310, role: "Personnel Records" },
+      { id: 3, name: "Main-FileServer", ip: "192.168.1.50", x: 500, y: 210, role: "Corporate Storage" },
+      { id: 4, name: "Dev-Workstation", ip: "192.168.1.77", x: 740, y: 110, role: "Software Engine" },
+      { id: 5, name: "SQL-Database", ip: "192.168.1.103", x: 740, y: 310, role: "Customer DB" },
+      { id: 6, name: "Admin-Laptop", ip: "192.168.1.140", x: 880, y: 150, role: "SecOps Controller" },
+      { id: 7, name: "Backup-SAN", ip: "192.168.1.254", x: 500, y: 350, role: "Disaster Recovery" }
+    ];
+
+    // LAN Physical Cable Links (for Virus & Worm)
+    const LAN_EDGES = [
+      [0, 1], [0, 2], [1, 3], [2, 3],
+      [3, 4], [3, 5], [3, 7], [4, 6],
+      [5, 6], [1, 7], [4, 7]
+    ];
+
+    /* ==============================================================
+       APPLICATION STATE
+       ============================================================== */
+    let currentMalwareKey = "virus";
+    let isPaused = false;
+    let animFrameCounter = 0;
+    let activePackets = [];
+    let runtimeNodes = [];
+    let fullCompromiseHoldFrames = 0;
+
+    // Canvas references
+    const canvas = document.getElementById("threatCanvas");
+    const ctx = canvas.getContext("2d");
+
+    /* ==============================================================
+       SCREEN NAVIGATION
+       ============================================================== */
+    function selectMalware(key) {
+      currentMalwareKey = key;
+      const data = THREAT_DB[key];
+
+      // Switch screens with smooth transition classes
+      const landing = document.getElementById("screen-landing");
+      const simulation = document.getElementById("screen-simulation");
+
+      landing.classList.remove("screen-active");
+      landing.classList.add("screen-inactive");
+
+      simulation.classList.remove("screen-inactive");
+      simulation.classList.add("screen-active");
+
+      // Update Top SOC Status if present
+      const statusPill = document.getElementById("soc-status-badge");
+      const statusText = document.getElementById("soc-status-text");
+      if (statusText) statusText.innerText = `ANALYZING_${key.toUpperCase()}`;
+      if (statusPill) {
+        statusPill.className = `flex items-center gap-2 px-3 py-1 rounded bg-slate-900 border text-xs font-mono`;
+        if (key === 'virus') statusPill.style.borderColor = "rgba(239, 68, 68, 0.4)";
+        if (key === 'worm') statusPill.style.borderColor = "rgba(16, 185, 129, 0.4)";
+        if (key === 'trojan') statusPill.style.borderColor = "rgba(245, 158, 11, 0.4)";
+      }
+
+      // Populate Screen 2 Top & Content
+      document.getElementById("active-icon").innerText = data.icon;
+      document.getElementById("active-title").innerText = data.name;
+      document.getElementById("active-badge").innerText = data.badge;
+      document.getElementById("active-badge").style.borderColor = data.accent;
+      document.getElementById("active-badge").style.color = data.accent;
+      document.getElementById("active-mech-banner").innerText = data.mechanismBanner;
+      document.getElementById("topology-mode-badge").innerText = data.topologyType;
+      document.getElementById("topology-mode-badge").style.color = data.accent;
+      document.getElementById("velocity-indicator").innerText = data.speedIndicator;
+      document.getElementById("hud-packet-desc").innerText = data.hudTelemetry;
+
+      // Populate Canvas Legend
+      document.getElementById("canvas-legend-box").innerHTML = data.legend.map(item => `<div>${item}</div>`).join('');
+
+      // Populate 6 Forensics Intelligence Sections
+      populateForensicsData(data);
+
+      // Resize Canvas & Boot Physics
+      setTimeout(() => {
+        resizeCanvas();
+        resetSimulation();
+      }, 60);
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function navigateHome() {
+      const landing = document.getElementById("screen-landing");
+      const simulation = document.getElementById("screen-simulation");
+
+      simulation.classList.remove("screen-active");
+      simulation.classList.add("screen-inactive");
+
+      landing.classList.remove("screen-inactive");
+      landing.classList.add("screen-active");
+
+      const statusText = document.getElementById("soc-status-text");
+      if (statusText) statusText.innerText = "NETWORK_ONLINE";
+      const statusPill = document.getElementById("soc-status-badge");
+      if (statusPill) statusPill.style.borderColor = "rgba(255, 255, 255, 0.1)";
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* ==============================================================
+       POPULATE FORENSIC INTELLIGENCE (6 DISTINCT TIERS)
+       ============================================================== */
+    function populateForensicsData(data) {
+      document.getElementById("forensic-process").innerHTML = data.process.map(p => `
+        <li class="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 leading-relaxed">${p}</li>
+      `).join('');
+
+      document.getElementById("forensic-causes").innerHTML = data.causes.map(c => `
+        <li class="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 leading-relaxed">${c}</li>
+      `).join('');
+
+      document.getElementById("forensic-threats").innerHTML = data.threats.map(t => `
+        <li class="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 leading-relaxed">${t}</li>
+      `).join('');
+
+      document.getElementById("forensic-harms").innerHTML = data.harms.map(h => `
+        <li class="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 leading-relaxed">${h}</li>
+      `).join('');
+
+      document.getElementById("forensic-solution").innerHTML = data.solution.map(s => `
+        <li class="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 leading-relaxed">${s}</li>
+      `).join('');
+
+      document.getElementById("forensic-security").innerHTML = data.security.map(sec => `
+        <li class="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 leading-relaxed">${sec}</li>
+      `).join('');
+    }
+
+    /* ==============================================================
+       CANVAS & SIMULATION PHYSICS
+       ============================================================== */
+    function resizeCanvas() {
+      if (!canvas || !canvas.parentElement) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+      }
+    }
+    window.addEventListener("resize", resizeCanvas);
+
+    function toggleSimPause() {
+      isPaused = !isPaused;
+      const btn = document.getElementById("sim-pause-btn");
+      btn.innerText = isPaused ? "▶ RESUME" : "⏸ PAUSE";
+      btn.classList.toggle("bg-amber-900", isPaused);
+    }
+
+    function resetSimulation() {
+      fullCompromiseHoldFrames = 0;
+      animFrameCounter = 0;
+      activePackets = [];
+
+      // Re-initialize runtime nodes
+      runtimeNodes = NETWORK_NODES.map((node, idx) => {
+        // In Virus and Worm, node 0 starts as patient zero
+        let initiallyInfected = (currentMalwareKey === "virus" || currentMalwareKey === "worm") && (idx === 0);
+
+        return {
+          ...node,
+          infected: initiallyInfected,
+          beaconActive: false,
+          compromiseTime: initiallyInfected ? "00:00:01 (Seed Zero)" : null
+        };
+      });
+
+      renderDeviceTableRegistry();
+    }
+
+    function stepSimulation() {
+      if (isPaused || !runtimeNodes || runtimeNodes.length === 0) return;
+
+      animFrameCounter++;
+      const data = THREAT_DB[currentMalwareKey];
+      if (!data) return;
+
+      const uninfected = runtimeNodes.filter(n => !n.infected);
+
+      // Loop handling: Once all are infected, hold for a few seconds and restart
+      if (uninfected.length === 0) {
+        fullCompromiseHoldFrames++;
+        if (fullCompromiseHoldFrames > 180) { // ~3 seconds at 60fps
+          resetSimulation();
+        }
+        return;
+      }
+
+      /* -----------------------------------------------------------
+         1. VIRUS PROPAGATION:
+         File-sharing hop along existing LAN cables.
+         Host-to-host sequential file transfer from an infected PC
+         to an uninfected peer node.
+         ----------------------------------------------------------- */
+      if (currentMalwareKey === "virus") {
+        if (animFrameCounter % data.spawnDelay === 0) {
+          const infectedList = runtimeNodes.filter(n => n.infected);
+          
+          for (let source of infectedList) {
+            // Find adjacent links with uninfected peers
+            const candidates = LAN_EDGES.filter(([a, b]) => {
+              const nodeA = runtimeNodes[a];
+              const nodeB = runtimeNodes[b];
+              if (!nodeA || !nodeB) return false;
+              return (a === source.id && !nodeB.infected) || 
+                     (b === source.id && !nodeA.infected);
+            });
+
+            if (candidates.length > 0) {
+              const [a, b] = candidates[Math.floor(Math.random() * candidates.length)];
+              const targetId = (a === source.id) ? b : a;
+              const targetNode = runtimeNodes[targetId];
+
+              if (targetNode) {
+                // Ensure packet not already traveling
+                const inFlight = activePackets.some(p => p.to.id === targetNode.id);
+                if (!inFlight) {
+                  activePackets.push({
+                    from: source,
+                    to: targetNode,
+                    progress: 0,
+                    speed: data.speed,
+                    label: "FILE_TRANSFER.DOCX"
+                  });
+                  break; // One human file exchange at a time
+                }
+              }
+            }
+          }
+        }
+      }
+
+      /* -----------------------------------------------------------
+         2. WORM PROPAGATION:
+         Autonomous parallel explosion across ALL open ports.
+         Every infected node continuously probes and attacks all neighbors.
+         ----------------------------------------------------------- */
+      else if (currentMalwareKey === "worm") {
+        if (animFrameCounter % data.spawnDelay === 0) {
+          const infectedList = runtimeNodes.filter(n => n.infected);
+
+          infectedList.forEach(source => {
+            LAN_EDGES.forEach(([a, b]) => {
+              const nodeA = runtimeNodes[a];
+              const nodeB = runtimeNodes[b];
+              if (!nodeA || !nodeB) return;
+
+              let targetId = null;
+              if (a === source.id && !nodeB.infected) targetId = b;
+              if (b === source.id && !nodeA.infected) targetId = a;
+
+              if (targetId !== null) {
+                const targetNode = runtimeNodes[targetId];
+                if (targetNode) {
+                  const inFlight = activePackets.some(p => p.from.id === source.id && p.to.id === targetNode.id);
+                  if (!inFlight) {
+                    activePackets.push({
+                      from: source,
+                      to: targetNode,
+                      progress: 0,
+                      speed: data.speed,
+                      label: "MS17_010_SMB_EXPLOIT"
+                    });
+                  }
+                }
+              }
+            });
+          });
+        }
+      }
+
+      /* -----------------------------------------------------------
+         3. TROJAN PROPAGATION:
+         Crucial difference: Does NOT self-replicate sideways!
+         The external Attacker C2 Server delivers fake payloads
+         to target endpoints individually via web/phishing bait.
+         Once infected, the node beacons back to C2.
+         ----------------------------------------------------------- */
+      else if (currentMalwareKey === "trojan") {
+        if (animFrameCounter % data.spawnDelay === 0 && uninfected.length > 0) {
+          // Attacker sends phishing lure or deceptive update download
+          const targetNode = uninfected[Math.floor(Math.random() * uninfected.length)];
+          const inFlight = activePackets.some(p => p.to.id === targetNode.id);
+
+          if (!inFlight && targetNode) {
+            activePackets.push({
+              from: ATTACKER_C2,
+              to: targetNode,
+              progress: 0,
+              speed: data.speed,
+              label: "FAKE_INSTALLER.EXE"
+            });
+          }
+        }
+      }
+
+      // Progress active in-flight attack packets
+      for (let i = activePackets.length - 1; i >= 0; i--) {
+        const p = activePackets[i];
+        p.progress += p.speed;
+
+        if (p.progress >= 1) {
+          // Packet arrived at target node!
+          if (p.to) {
+            p.to.infected = true;
+            p.to.beaconActive = (currentMalwareKey === "trojan");
+
+            const now = new Date();
+            p.to.compromiseTime = now.toTimeString().split(' ')[0];
+          }
+
+          activePackets.splice(i, 1);
+          renderDeviceTableRegistry();
+        }
+      }
+    }
+
+    function drawSimulation() {
+      if (!canvas || !ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!runtimeNodes || runtimeNodes.length === 0) return;
+
+      const scaleX = (canvas.width || 1000) / 1000;
+      const scaleY = (canvas.height || 440) / 440;
+      const data = THREAT_DB[currentMalwareKey];
+      if (!data) return;
+
+      // Draw Attacker C2 Server ONLY during Trojan Mode
+      if (currentMalwareKey === "trojan") {
+        const cx = ATTACKER_C2.x * scaleX;
+        const cy = ATTACKER_C2.y * scaleY;
+
+        // Attacker Pulsing Aura
+        ctx.fillStyle = "rgba(225, 29, 72, 0.14)";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 32, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Server Box
+        ctx.fillStyle = "#1e1022";
+        ctx.strokeStyle = "#f43f5e";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(cx - 30, cy - 16, 60, 32, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 10px var(--font-orbitron)";
+        ctx.textAlign = "center";
+        ctx.fillText("ATTACKER C2", cx, cy + 3);
+
+        ctx.font = "10px var(--font-mono)";
+        ctx.fillStyle = "#fb7185";
+        ctx.fillText(ATTACKER_C2.ip, cx, cy - 22);
+
+        // Draw dotted download conduits from C2 to internal machines
+        runtimeNodes.forEach(node => {
+          ctx.strokeStyle = node.beaconActive ? "rgba(245, 158, 11, 0.45)" : "rgba(244, 63, 94, 0.12)";
+          ctx.lineWidth = node.beaconActive ? 1.5 : 1;
+          ctx.setLineDash(node.beaconActive ? [3, 3] : [5, 5]);
+          ctx.beginPath();
+          ctx.moveTo(cx, cy + 16);
+          ctx.lineTo(node.x * scaleX, node.y * scaleY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        });
+      }
+
+      // Draw Local Subnet Mesh Cables (For Virus and Worm)
+      if (currentMalwareKey !== "trojan") {
+        LAN_EDGES.forEach(([a, b]) => {
+          const nA = runtimeNodes[a];
+          const nB = runtimeNodes[b];
+
+          if (!nA || !nB) return;
+
+          if (nA.infected && nB.infected) {
+            ctx.strokeStyle = `${data.accent}66`;
+            ctx.lineWidth = 2;
+          } else {
+            ctx.strokeStyle = "rgba(56, 189, 248, 0.12)";
+            ctx.lineWidth = 1.5;
+          }
+
+          ctx.beginPath();
+          ctx.moveTo(nA.x * scaleX, nA.y * scaleY);
+          ctx.lineTo(nB.x * scaleX, nB.y * scaleY);
+          ctx.stroke();
+        });
+      }
+
+      // Draw Moving Threat Packets
+      activePackets.forEach(p => {
+        if (!p.from || !p.to) return;
+        const px = (p.from.x + (p.to.x - p.from.x) * p.progress) * scaleX;
+        const py = (p.from.y + (p.to.y - p.from.y) * p.progress) * scaleY;
+
+        // Glowing Packet Dot
+        ctx.shadowColor = data.accent;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = data.accent;
+        ctx.beginPath();
+        ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Packet Label
+        ctx.font = "bold 9px var(--font-mono)";
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.fillText(p.label, px, py - 9);
+      });
+
+      // Draw Subnet Computer Blocks
+      runtimeNodes.forEach(node => {
+        const nx = node.x * scaleX;
+        const ny = node.y * scaleY;
+
+        // Halo if infected
+        if (node.infected) {
+          ctx.strokeStyle = data.accent;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(nx, ny, 26, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = `${data.accent}15`;
+          ctx.beginPath();
+          ctx.arc(nx, ny, 26, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Computer Block Case
+        ctx.fillStyle = node.infected ? "rgba(18, 22, 38, 0.95)" : "rgba(8, 14, 28, 0.85)";
+        ctx.strokeStyle = node.infected ? data.accent : "rgba(56, 189, 248, 0.25)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(nx - 36, ny - 22, 72, 44, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // Host Icon
+        ctx.font = "14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(node.infected ? "⚠️" : "💻", nx, ny - 2);
+
+        // Hostname
+        ctx.font = "bold 9px var(--font-sans)";
+        ctx.fillStyle = node.infected ? "#ffffff" : "#cbd5e1";
+        ctx.fillText(node.name, nx, ny + 12);
+
+        // IP Address Label Below Block
+        ctx.font = "10px var(--font-mono)";
+        ctx.fillStyle = node.infected ? data.accent : "#64748b";
+        ctx.fillText(node.ip, nx, ny + 34);
+
+        // Trojan Outbound C2 Beacon Status
+        if (node.beaconActive) {
+          ctx.font = "9px var(--font-mono)";
+          ctx.fillStyle = "#f59e0b";
+          ctx.fillText("⚡ C2 LINKED", nx, ny + 46);
+        }
+      });
+    }
+
+    function renderLoop() {
+      stepSimulation();
+      drawSimulation();
+      requestAnimationFrame(renderLoop);
+    }
+
+    /* ==============================================================
+       DEVICE IP REGISTRY TABLE
+       ============================================================== */
+    function renderDeviceTableRegistry() {
+      const grid = document.getElementById("device-blocks-grid");
+      if (!grid || !runtimeNodes) return;
+
+      grid.innerHTML = "";
+      const data = THREAT_DB[currentMalwareKey];
+      if (!data) return;
+      let infectedCount = 0;
+
+      runtimeNodes.forEach(node => {
+        if (node.infected) infectedCount++;
+
+        let statusBadge = "SECURE";
+        let statusStyle = "text-slate-400 bg-slate-900 border-slate-800";
+
+        if (node.infected) {
+          if (currentMalwareKey === "trojan") {
+            statusBadge = "BACKDOORED";
+            statusStyle = "text-amber-400 bg-amber-950/40 border-amber-800/60";
+          } else if (currentMalwareKey === "worm") {
+            statusBadge = "EXPLOITED";
+            statusStyle = "text-emerald-400 bg-emerald-950/40 border-emerald-800/60";
+          } else {
+            statusBadge = "INFECTED";
+            statusStyle = "text-red-400 bg-red-950/40 border-red-800/60";
+          }
+        }
+
+        const block = document.createElement("div");
+        block.className = `p-2 sm:p-2.5 rounded-lg border flex flex-col justify-between font-mono text-[10px] sm:text-[11px] transition-all duration-300 ${
+          node.infected
+            ? 'bg-slate-900/90 border-slate-700 shadow-md'
+            : 'bg-slate-950/60 border-slate-800/60 text-slate-500'
+        }`;
+
+        block.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-1 gap-1">
+              <span class="font-bold text-slate-200 text-[11px] sm:text-xs truncate">${node.name}</span>
+              <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full flex-shrink-0 ${node.infected ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'bg-slate-700'}"></span>
+            </div>
+            <div class="text-[9px] sm:text-[10px] text-cyan-400 font-mono mb-1 truncate">${node.ip}</div>
+            <div class="text-[8.5px] sm:text-[9px] text-slate-400 truncate mb-1.5 sm:mb-2">${node.role}</div>
+          </div>
+          <div>
+            <span class="px-1 py-0.5 rounded text-[8.5px] sm:text-[9px] font-bold border block text-center truncate ${statusStyle}">
+              ${statusBadge}
+            </span>
+            <div class="text-[8px] sm:text-[9px] text-slate-400 mt-1 truncate">
+              ${node.compromiseTime ? `${node.compromiseTime}` : 'Clean Status'}
+            </div>
+          </div>
+        `;
+
+        grid.appendChild(block);
+      });
+
+      const statsEl = document.getElementById("compromise-stats");
+      if (statsEl) {
+        statsEl.innerText = `${infectedCount} / ${runtimeNodes.length} COMPROMISED`;
+        statsEl.style.color = infectedCount === runtimeNodes.length ? data.accent : "#94a3b8";
+      }
+    }
+
+    /* Start execution once window is ready */
+    window.addEventListener("load", () => {
+      resizeCanvas();
+      resetSimulation();
+      renderLoop();
+    });
+  </script>
+</body>
+</html>
